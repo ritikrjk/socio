@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
   password: {
     type: String,
     required: true,
@@ -24,10 +28,19 @@ const userSchema = new mongoose.Schema({
     required: true,
     enum: ["male", "female", "other", "prefer not to say"],
   },
-  avatar: String,
+  avatar: {
+    type: String,
+  },
+  age: {
+    type: Number,
+  },
   bio: {
     type: String,
     maxLength: [250, "Bio cannot exceed 250 characters."],
+  },
+  isPrivate : {
+    type: Boolean,
+    default : false  // false = public profile, true = private
   },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

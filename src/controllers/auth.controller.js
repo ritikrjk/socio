@@ -1,7 +1,8 @@
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const {generateAccessToken, generateRefreshToken} = require("../utils/token");
+
+const { generateAccessToken, generateRefreshToken } = require("../utils/token");
 const isValidEmail = require("../utils/validemail_check");
 
 const registerUser = async (req, res) => {
@@ -35,7 +36,8 @@ const registerUser = async (req, res) => {
       lastName: newUser.nameLast,
       email: newUser.email,
       gender: newUser.gender,
-      token: generateToken(newUser._id), // Assuming generateToken is defined elsewhere
+      refreshToken: generateRefreshToken(newUser._id),
+      accessToken: generateAccessToken(newUser._id), // Assuming generateToken is defined elsewhere
     });
   } catch (error) {
     console.error(error); // It's good practice to log the actual error on the server
@@ -47,8 +49,14 @@ loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    const isMatch = await bcrypt.compare(password, user.password);
 
+    // if user exists
+    if (!user) {
+      return res.status(400).json({ message: "User not found." });
+    }
+
+    // verify password
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid Password" });
     }
@@ -58,8 +66,8 @@ loginUser = async (req, res) => {
       lastName: user.nameLast,
       email: user.email,
       gender: user.gender,
-      refreshToken : generateRefreshToken(user._id),
-      accessToken : generateAccessToken(user._id)
+      refreshToken: generateRefreshToken(user._id),
+      accessToken: generateAccessToken(user._id),
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -68,24 +76,23 @@ loginUser = async (req, res) => {
 };
 
 const refreshAccessToken = async (req, res) => {
+  const { refreshToken } = req.body;
 
-  const {refreshToken} = req.body;
-
-  if(!refreshToken){
-      return res.status(400).json({ message: "Refresh token is required." });
+  if (!refreshToken) {
+    return res.status(400).json({ message: "Refresh token is required." });
   }
 
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-     const newAccessToken = generateAccessToken(decoded.id);
+    const newAccessToken = generateAccessToken(decoded.id);
 
-   
-    
     res.json({ accessToken: newAccessToken });
   } catch (error) {
-     return res.status(401).json({ message: "Invalid or expired refresh token." });
+    console.error("Refresh token error", error);
+    return res
+      .status(401)
+      .json({ message: "Invalid or expired refresh token." });
   }
-
 };
 
-module.exports = { loginUser, registerUser, refreshAccessToken};
+module.exports = { loginUser, registerUser, refreshAccessToken };
