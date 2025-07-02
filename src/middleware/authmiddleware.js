@@ -12,7 +12,6 @@ const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1]; // Get token from "Bearer <token>"
 
-    
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT secret is not defined.");
     }
@@ -28,10 +27,14 @@ const authMiddleware = async (req, res, next) => {
 
     req.user = user; // Store user info for next middleware or controller
     next(); // Proceed to route
-
   } catch (error) {
     console.error("Auth middleware error:", error);
-    return res.status(401).json({ message: "Token is invalid or expired." });
+
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token has expired." });
+    }
+
+    return res.status(401).json({ message: "Token is invalid." });
   }
 };
 

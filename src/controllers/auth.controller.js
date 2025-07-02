@@ -45,7 +45,7 @@ const registerUser = async (req, res) => {
   }
 };
 
-loginUser = async (req, res) => {
+const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -60,7 +60,7 @@ loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid Password" });
     }
-    res.status(201).json({
+    res.status(200).json({
       _id: user._id,
       firstName: user.nameFirst,
       lastName: user.nameLast,
@@ -94,5 +94,6 @@ const refreshAccessToken = async (req, res) => {
       .json({ message: "Invalid or expired refresh token." });
   }
 };
+
 
 module.exports = { loginUser, registerUser, refreshAccessToken };
