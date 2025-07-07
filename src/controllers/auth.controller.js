@@ -31,11 +31,7 @@ const registerUser = async (req, res) => {
     });
 
     res.status(201).json({
-      _id: newUser._id,
-      firstName: newUser.nameFirst,
-      lastName: newUser.nameLast,
-      email: newUser.email,
-      gender: newUser.gender,
+      user : newUser,
       refreshToken: generateRefreshToken(newUser._id),
       accessToken: generateAccessToken(newUser._id), // Assuming generateToken is defined elsewhere
     });
@@ -61,11 +57,7 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid Password" });
     }
     res.status(200).json({
-      _id: user._id,
-      firstName: user.nameFirst,
-      lastName: user.nameLast,
-      email: user.email,
-      gender: user.gender,
+      user : user,
       refreshToken: generateRefreshToken(user._id),
       accessToken: generateAccessToken(user._id),
     });
@@ -85,8 +77,9 @@ const refreshAccessToken = async (req, res) => {
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const newAccessToken = generateAccessToken(decoded.id);
+    const newRefreshToken = generateRefreshToken(decoded.id);
 
-    res.json({ accessToken: newAccessToken });
+    res.json.status(200).json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
   } catch (error) {
     console.error("Refresh token error", error);
     return res
@@ -94,6 +87,5 @@ const refreshAccessToken = async (req, res) => {
       .json({ message: "Invalid or expired refresh token." });
   }
 };
-
 
 module.exports = { loginUser, registerUser, refreshAccessToken };
