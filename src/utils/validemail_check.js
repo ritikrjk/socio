@@ -1,5 +1,4 @@
 
-
 const isValidEmail = (email) => {
   // Return false if the email is null, undefined, or not a string
   if (!email || typeof email !== 'string') {
@@ -13,3 +12,4 @@ const isValidEmail = (email) => {
 };
 
 module.exports = isValidEmail;
+
