@@ -4,8 +4,7 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth.route");
 const postRoutes = require("./routes/post.routes");
-const userRoutes = require("./routes/user.route")
-
+const userRoutes = require("./routes/user.route");
 
 dotenv.config();
 const app = express();
@@ -17,8 +16,8 @@ connectDB();
 
 //Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/post", postRoutes);  
-app.use('/api/profile', userRoutes);
+app.use("/api/post", postRoutes);
+app.use("/api/profile", userRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

@@ -58,4 +58,15 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Remove password and __v from user object when it is converted to JSON
+userSchema.methods.toJSON = function () {
+  const user = this;
+  const userObject = user.toObject();
+
+  delete userObject.password;
+  delete userObject.__v;
+
+  return userObject;
+};
+
 module.exports = mongoose.model("User", userSchema);

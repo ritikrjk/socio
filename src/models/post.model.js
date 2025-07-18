@@ -24,7 +24,10 @@ const postSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
-  shares: Number,
+  shares: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
