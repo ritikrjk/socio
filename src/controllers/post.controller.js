@@ -85,7 +85,7 @@ const unlikePost = async (req, res) => {
     return res.status(200).json({
       message: "Post unliked successfully.",
       post,
-      likesCount: post.likes.length
+      likesCount: post.likes.length,
     });
   } catch (error) {
     console.error("Unlike Error:", error);
@@ -93,12 +93,18 @@ const unlikePost = async (req, res) => {
   }
 };
 
-//add comment on a post
+//add a comment to a post
 const addComment = async (req, res) => {
   try {
     const userId = req.user._id;
     const { postId } = req.params;
     const { text } = req.body;
+
+    // Check if the post exists
+    const validPost = await Post.findById(postId);
+    if (!validPost) {
+      return res.status(404).json({ message: "Post not found." });
+    }
 
     // Validate comment content
     if (typeof text !== "string" || text.trim().length === 0) {
@@ -106,7 +112,6 @@ const addComment = async (req, res) => {
         .status(400)
         .json({ message: "Comment content cannot be empty." });
     }
-
     if (text.trim().length > 300) {
       return res
         .status(400)
@@ -116,26 +121,64 @@ const addComment = async (req, res) => {
     const newComment = {
       user: userId,
       comment: text.trim(),
+      createdAt: new Date(),
     };
 
-    // Use findByIdAndUpdate with $push for an atomic operation
-    const post = await Post.findByIdAndUpdate(
+    // Add comment to the post
+    const updatedPost = await Post.findByIdAndUpdate(
       postId,
       { $push: { comments: newComment } },
       { new: true }
     );
 
-    if (!post) {
-      return res.status(404).json({ message: "Post not found." });
+    if (!updatedPost) {
+      return res
+        .status(404)
+        .json({ message: "Failed to add comment. Post not found." });
     }
 
     res.status(201).json({
+      comment: newComment,
       message: "Comment added successfully.",
-      commentsCount: post.comments.length,
+      commentsCount: updatedPost.comments.length,
     });
   } catch (error) {
     console.error("Comment error:", error);
     res.status(500).json({ message: "Error adding comment." });
+  }
+};
+
+//delete a comment from post
+const deleteComment = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const postId = req.params.postId;
+    const commentId = req.params.commentId;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found." });
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    if (comment.user.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this comment." });
+    }
+
+    comment.remove();
+    await post.save();
+
+    res.status(200).json({ message: "Comment deleted successfully." });
+  } catch (error) {
+    console.error("Delete Comment error:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -149,7 +192,9 @@ const getAllPublicPosts = async (req, res) => {
     const publicUsers = await User.find({ isPrivate: false }).select("_id");
     const publicUserIds = publicUsers.map((user) => user._id);
 
-    const totalPosts = await Post.countDocuments({ user: { $in: publicUserIds } });
+    const totalPosts = await Post.countDocuments({
+      user: { $in: publicUserIds },
+    });
 
     const posts = await Post.find({ user: { $in: publicUserIds } })
       .populate("user", "nameFirst nameLast avatar")
@@ -185,7 +230,9 @@ const getFollowingPosts = async (req, res) => {
 
     const followingUsersIds = user.following;
 
-    const totalPosts = await Post.countDocuments({ user: { $in: followingUsersIds } });
+    const totalPosts = await Post.countDocuments({
+      user: { $in: followingUsersIds },
+    });
 
     const posts = await Post.find({ user: { $in: followingUsersIds } })
       .populate("user", "nameFirst nameLast avatar")

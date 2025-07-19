@@ -7,19 +7,19 @@ const postSchema = new mongoose.Schema({
     required: true,
   },
   content: {
-    type : String,
-    required : true,
-    minlength : 14,
-    maxlength : 1000
+    type: String,
+    required: true,
+    minlength: 14,
+    maxlength: 1000,
   },
-  
+
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   comments: [
     {
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       comment: {
-        type :String,
-        maxlength : 300
+        type: String,
+        maxlength: 300,
       },
       createdAt: { type: Date, default: Date.now },
     },
