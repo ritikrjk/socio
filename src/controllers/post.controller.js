@@ -118,7 +118,7 @@ const addComment = async (req, res) => {
         .json({ message: "Comment cannot exceed 300 characters." });
     }
 
-    const newComment = {
+    const newCommentData = {
       user: userId,
       comment: text.trim(),
       createdAt: new Date(),
@@ -127,7 +127,7 @@ const addComment = async (req, res) => {
     // Add comment to the post
     const updatedPost = await Post.findByIdAndUpdate(
       postId,
-      { $push: { comments: newComment } },
+      { $push: { comments: newCommentData } },
       { new: true }
     );
 
@@ -137,10 +137,20 @@ const addComment = async (req, res) => {
         .json({ message: "Failed to add comment. Post not found." });
     }
 
+    const addedComment = updatedPost.comments[updatedPost.comments.length - 1];
+
+    if (!addedComment) {
+      return res.status(500).json({ message: "Failed to add comment." });
+    }
+
     res.status(201).json({
-      comment: newComment,
+      comment: {
+        _id: addedComment._id,
+        user: addedComment.user,
+        comment: addedComment.comment,
+        createdAt: addedComment.createdAt,
+      },
       message: "Comment added successfully.",
-      commentsCount: updatedPost.comments.length,
     });
   } catch (error) {
     console.error("Comment error:", error);
@@ -260,6 +270,7 @@ module.exports = {
   likePost,
   unlikePost,
   addComment,
+  deleteComment,
   getAllPublicPosts,
   getFollowingPosts,
 };
