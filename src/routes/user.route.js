@@ -1,33 +1,40 @@
-const express = require('express');
-const { 
+const express = require("express");
+const {
   getUserData,
-  updateUserData,
+  getUserById,
+  updateUserProfile,
   followUser,
-  unfollowUser,
+  unFollowUser,
+  acceptFollowRequest,
+  rejectFollowRequest,
   getFollowing,
   getFollowers,
   blockUser,
-  unblockUser
+  unblockUser,
 } = require("../controllers/user.controller");
-const authMiddleware = require('../middleware/authmiddleware');
+
+const authMiddleware = require("../middleware/authmiddleware");
 const router = express.Router();
 
-// User data route
+// User profile
 router.get("/userdata", authMiddleware, getUserData);
+router.post("/updatedata", authMiddleware, updateUserProfile);
+router.get("/:id", authMiddleware, getUserById);
 
-// Update user data route
-router.post("/updatedata", authMiddleware, updateUserData);
-
-
-// Follow/Unfollow routes
+// follow and unfollow
 router.post("/follow/:id", authMiddleware, followUser);
-router.post("/unfollow/:id", authMiddleware, unfollowUser);
+router.delete("/unfollow/:id", authMiddleware, unFollowUser);
 
-// Get following/followers routes
+
+// Accept/Reject follow request (Private accounts)
+router.post("/accept-follow/:id", authMiddleware, acceptFollowRequest); // ✅ NEW
+router.post("/reject-follow/:id", authMiddleware, rejectFollowRequest); // ✅ Optional
+
+// Get connections
 router.get("/following", authMiddleware, getFollowing);
 router.get("/followers", authMiddleware, getFollowers);
 
-// Block/Unblock routes
+// Block/Unblock
 router.post("/block/:id", authMiddleware, blockUser);
 router.post("/unblock/:id", authMiddleware, unblockUser);
 

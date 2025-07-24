@@ -45,6 +45,8 @@ const userSchema = new mongoose.Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  pendingFollowRequests:[{type: mongoose.Schema.Types.ObjectId, ref: "User"}],
+  
   createdAt: {
     type: Date,
     default: Date.now,

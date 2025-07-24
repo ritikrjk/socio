@@ -93,6 +93,23 @@ const unlikePost = async (req, res) => {
   }
 };
 
+const fetchAllComments = async (req, res) => {
+  try {
+    const postId = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Invalid Post ID format." });
+    }
+    const post = await Post.findById(postId).select("comments").populate({
+      path: "comments.user",
+      select: "nameFirst nameLast",
+    });
+  } catch (error) {
+    console.error("Fetching All Comments error:", error);
+    return res.status(500).json({ message: "Error fetching all comments." });
+  }
+};
+
 //add a comment to a post
 const addComment = async (req, res) => {
   try {
@@ -116,6 +133,13 @@ const addComment = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Comment cannot exceed 300 characters." });
+    }
+
+    // 1. Fetch the user's details (nameFirst, nameLast) for the response
+    const commentingUser =
+      await User.findById(userId).select("nameFirst nameLast");
+    if (!commentingUser) {
+      return res.status(404).json({ message: "Commenting user not found." });
     }
 
     const newCommentData = {
@@ -146,7 +170,8 @@ const addComment = async (req, res) => {
     res.status(201).json({
       comment: {
         _id: addedComment._id,
-        user: addedComment.user,
+        name: `${commentingUser.nameFirst} ${commentingUser.nameLast}`,
+        userId: addedComment.user,
         comment: addedComment.comment,
         createdAt: addedComment.createdAt,
       },

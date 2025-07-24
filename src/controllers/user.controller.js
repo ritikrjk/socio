@@ -13,114 +13,208 @@ const getUserData = async (req, res) => {
       user: req.user,
     });
   } catch (error) {
-    console.log("Getting UserData Error :", error);
+    console.error("Getting UserData Error :", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
 
-//update user details 
-const updateUserData = async (req, res) => {
+const getUserById = async (req, res) => {
   try {
-    const {bio, age} = req.body;
-    const userId = req.user._id;
+    const userId = req.params.id;
     const user = await User.findById(userId);
-    if(user == null){
+
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
-    user.bio = bio;
-    user.age = age;
-    await user.save();
-    res.status(200).json({ message: "User data updated successfully" });
-
+    res.status(200).json({ user });
   } catch (error) {
-      console.log("Updating UserData Error :", error);
-      res.status(500).json({ message: "Server Error" });
+    console.error("Error while getting user by id:", error);
+    res.status(500).json({ message: "Error while getting user by id" });
   }
-}
+};
+
+//updating user details
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user._id; // Get user ID from authenticated request
+    const updates = req.body; // The fields to update
+
+    // Filter allowed fields to prevent arbitrary updates (important for security!)
+    const allowedUpdates = [
+      "nameFirst",
+      "nameLast",
+      "email",
+      "gender",
+      "avatar",
+      "bio",
+      "isPrivate",
+    ];
+    const actualUpdates = {};
+
+    Object.keys(updates).forEach((key) => {
+      if (allowedUpdates.includes(key)) {
+        actualUpdates[key] = updates[key];
+      }
+    });
+
+    if (Object.keys(actualUpdates).length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No valid fields provided for update." });
+    }
+
+    // Find and update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: actualUpdates }, // Use $set to update only specified fields
+      { new: true, runValidators: true, select: "-password" } // Return updated doc, run schema validators, exclude password
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({
+      message: "Profile updated successfully.",
+      user: updatedUser.toObject({ getters: true, virtuals: false }), // Convert to plain object, handle virtuals if needed
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: "Server error during profile update." });
+  }
+};
 
 // Follow a user
 const followUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const targetUserId = req.params.id;
     const currentUserId = req.user._id;
 
-    // Check if trying to follow themselves
-    if (currentUserId.toString() === id) {
+    if (targetUserId === currentUserId.toString()) {
       return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
-    // Check if user to follow exists
-    const userToFollow = await User.findById(id);
-    if (!userToFollow) {
+    const targetUser = await User.findById(targetUserId);
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser || !currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if current user is blocked by the user they want to follow
-    if (userToFollow.blockedUsers.includes(currentUserId)) {
-      return res.status(403).json({ message: "You cannot follow this user" });
-    }
-
-    // Check if already following
-    const currentUser = await User.findById(currentUserId);
-    if (currentUser.following.includes(id)) {
+    if (currentUser.following.includes(targetUserId)) {
       return res.status(400).json({ message: "Already following this user" });
     }
 
-    // Add to following list of current user
-    await User.findByIdAndUpdate(currentUserId, {
-      $push: { following: id }
-    });
+    if (targetUser.blockedUsers.includes(currentUserId)) {
+      return res.status(403).json({ message: "You are blocked by this user" });
+    }
 
-    // Add to followers list of target user
-    await User.findByIdAndUpdate(id, {
-      $push: { followers: currentUserId }
-    });
+    if (targetUser.isPrivate) {
+      // For private account → send request
+      if (targetUser.pendingFollowRequests.includes(currentUserId)) {
+        return res.status(400).json({ message: "Follow request already sent" });
+      }
 
-    res.status(200).json({ message: "User followed successfully" });
-  } catch (error) {
-    console.log("Follow user error:", error);
-    res.status(500).json({ message: "Server Error" });
+      targetUser.pendingFollowRequests.push(currentUserId);
+      await targetUser.save();
+
+      return res
+        .status(200)
+        .json({ message: "Follow request sent to private user" });
+    }
+
+    // Public user → directly follow
+    currentUser.following.push(targetUserId);
+    targetUser.followers.push(currentUserId);
+
+    await currentUser.save();
+    await targetUser.save();
+
+    return res.status(200).json({ message: "Followed public user" });
+  } catch (err) {
+    console.error("Follow error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 // Unfollow a user
-const unfollowUser = async (req, res) => {
+const unFollowUser = async (req, res) => {
+  try{
+
+  }catch(error){
+
+  }
+}
+
+const acceptFollowRequest = async (req, res) => {
   try {
-    const { id } = req.params;
-    const currentUserId = req.user._id;
+    const currentUserId = req.user._id; // private user
+    const requesterId = req.params.id; // user who sent the request
 
-    // Check if trying to unfollow themselves
-    if (currentUserId.toString() === id) {
-      return res.status(400).json({ message: "You cannot unfollow yourself" });
-    }
+    const currentUser = await User.findById(currentUserId);
+    const requesterUser = await User.findById(requesterId);
 
-    // Check if user exists
-    const userToUnfollow = await User.findById(id);
-    if (!userToUnfollow) {
+    if (!currentUser || !requesterUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if currently following
-    const currentUser = await User.findById(currentUserId);
-    if (!currentUser.following.includes(id)) {
-      return res.status(400).json({ message: "Not following this user" });
+    if (!currentUser.pendingFollowRequests.includes(requesterId)) {
+      return res
+        .status(400)
+        .json({ message: "No pending request from this user" });
     }
 
-    // Remove from following list of current user
-    await User.findByIdAndUpdate(currentUserId, {
-      $pull: { following: id }
-    });
+    // ✅ Accept: update both
+    currentUser.followers.push(requesterId);
+    requesterUser.following.push(currentUserId);
 
-    // Remove from followers list of target user
-    await User.findByIdAndUpdate(id, {
-      $pull: { followers: currentUserId }
-    });
+    // Remove request
+    currentUser.pendingFollowRequests =
+      currentUser.pendingFollowRequests.filter(
+        (id) => id.toString() !== requesterId
+      );
 
-    res.status(200).json({ message: "User unfollowed successfully" });
-  } catch (error) {
-    console.log("Unfollow user error:", error);
-    res.status(500).json({ message: "Server Error" });
+    await currentUser.save();
+    await requesterUser.save();
+
+    return res.status(200).json({ message: "Follow request accepted" });
+  } catch (err) {
+    console.error("Accept follow error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+const rejectFollowRequest = async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+    const requesterId = req.params.id;
+
+    const currentUser = await User.findById(currentUserId);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!currentUser.pendingFollowRequests.includes(requesterId)) {
+      return res
+        .status(400)
+        .json({ message: "No pending request from this user" });
+    }
+
+    currentUser.pendingFollowRequests =
+      currentUser.pendingFollowRequests.filter(
+        (id) => id.toString() !== requesterId
+      );
+
+    await currentUser.save();
+
+    return res.status(200).json({ message: "Follow request rejected" });
+  } catch (err) {
+    console.error("Reject follow error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -128,10 +222,10 @@ const unfollowUser = async (req, res) => {
 const getFollowing = async (req, res) => {
   try {
     const currentUserId = req.user._id;
-    
+
     const user = await User.findById(currentUserId)
-      .populate('following', 'nameFirst nameLast email avatar')
-      .select('following');
+      .populate("following", "nameFirst nameLast email avatar")
+      .select("following");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -139,7 +233,7 @@ const getFollowing = async (req, res) => {
 
     res.status(200).json({
       following: user.following,
-      count: user.following.length
+      count: user.following.length,
     });
   } catch (error) {
     console.log("Get following error:", error);
@@ -151,10 +245,10 @@ const getFollowing = async (req, res) => {
 const getFollowers = async (req, res) => {
   try {
     const currentUserId = req.user._id;
-    
+
     const user = await User.findById(currentUserId)
-      .populate('followers', 'nameFirst nameLast email avatar')
-      .select('followers');
+      .populate("followers", "nameFirst nameLast email avatar")
+      .select("followers");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -162,7 +256,7 @@ const getFollowers = async (req, res) => {
 
     res.status(200).json({
       followers: user.followers,
-      count: user.followers.length
+      count: user.followers.length,
     });
   } catch (error) {
     console.log("Get followers error:", error);
@@ -195,25 +289,25 @@ const blockUser = async (req, res) => {
 
     // Add to blocked users list
     await User.findByIdAndUpdate(currentUserId, {
-      $push: { blockedUsers: id }
+      $push: { blockedUsers: id },
     });
 
     // Remove from following/followers if they exist
     await User.findByIdAndUpdate(currentUserId, {
-      $pull: { following: id }
+      $pull: { following: id },
     });
 
     await User.findByIdAndUpdate(id, {
-      $pull: { followers: currentUserId }
+      $pull: { followers: currentUserId },
     });
 
     // Remove current user from blocked user's following/followers
     await User.findByIdAndUpdate(id, {
-      $pull: { following: currentUserId }
+      $pull: { following: currentUserId },
     });
 
     await User.findByIdAndUpdate(currentUserId, {
-      $pull: { followers: id }
+      $pull: { followers: id },
     });
 
     res.status(200).json({ message: "User blocked successfully" });
@@ -248,7 +342,7 @@ const unblockUser = async (req, res) => {
 
     // Remove from blocked users list
     await User.findByIdAndUpdate(currentUserId, {
-      $pull: { blockedUsers: id }
+      $pull: { blockedUsers: id },
     });
 
     res.status(200).json({ message: "User unblocked successfully" });
@@ -258,13 +352,16 @@ const unblockUser = async (req, res) => {
   }
 };
 
-module.exports = { 
+module.exports = {
   getUserData,
-  updateUserData,
+  getUserById,
+  updateUserProfile,
   followUser,
-  unfollowUser,
+  unFollowUser,
+  acceptFollowRequest,
+  rejectFollowRequest,  
   getFollowing,
   getFollowers,
   blockUser,
-  unblockUser
+  unblockUser,
 };
