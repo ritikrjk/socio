@@ -142,10 +142,36 @@ const followUser = async (req, res) => {
 
 // Unfollow a user
 const unFollowUser = async (req, res) => {
-  try{
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user._id;
 
-  }catch(error){
+    if (targetUserId === currentUserId.toString()) {
+      return res.status(400).json({ message: "You cannot unfollow yourself" });
+    }
 
+    const targetUser = await User.findById(targetUserId);
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser || !currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!currentUser.following.includes(targetUserId)) {
+      return res.status(400).json({ message: "You are not following this user" });
+    }
+
+    // Remove from following and followers arrays
+    currentUser.following.pull(targetUserId);
+    targetUser.followers.pull(currentUserId);
+
+    await currentUser.save();
+    await targetUser.save();
+
+    return res.status(200).json({ message: "Successfully unfollowed user" });
+  } catch (error) {
+    console.error("Unfollow error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 }
 
@@ -187,33 +213,65 @@ const acceptFollowRequest = async (req, res) => {
   }
 };
 
+// Helper function to remove follow request
+const removeFollowRequest = async (receiverUserId, senderUserId) => {
+  const receiverUser = await User.findById(receiverUserId);
+  
+  if (!receiverUser) {
+    throw new Error("Receiver user not found");
+  }
+
+  if (!receiverUser.pendingFollowRequests.includes(senderUserId)) {
+    throw new Error("No pending request found");
+  }
+
+  receiverUser.pendingFollowRequests = receiverUser.pendingFollowRequests.filter(
+    (id) => id.toString() !== senderUserId.toString()
+  );
+
+  await receiverUser.save();
+  return receiverUser;
+};
+
 const rejectFollowRequest = async (req, res) => {
   try {
-    const currentUserId = req.user._id;
-    const requesterId = req.params.id;
+    const currentUserId = req.user._id; // receiver (private user)
+    const requesterId = req.params.id; // sender of the request
 
-    const currentUser = await User.findById(currentUserId);
-
-    if (!currentUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (!currentUser.pendingFollowRequests.includes(requesterId)) {
-      return res
-        .status(400)
-        .json({ message: "No pending request from this user" });
-    }
-
-    currentUser.pendingFollowRequests =
-      currentUser.pendingFollowRequests.filter(
-        (id) => id.toString() !== requesterId
-      );
-
-    await currentUser.save();
-
+    await removeFollowRequest(currentUserId, requesterId);
     return res.status(200).json({ message: "Follow request rejected" });
   } catch (err) {
     console.error("Reject follow error:", err);
+    
+    if (err.message === "Receiver user not found") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (err.message === "No pending request found") {
+      return res.status(400).json({ message: "No pending request from this user" });
+    }
+    
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Cancel a follow request (for the user who sent the request)
+const cancelFollowRequest = async (req, res) => {
+  try {
+    const targetUserId = req.params.id; // receiver (private user)
+    const currentUserId = req.user._id; // sender of the request
+
+    await removeFollowRequest(targetUserId, currentUserId);
+    return res.status(200).json({ message: "Follow request cancelled" });
+  } catch (err) {
+    console.error("Cancel follow request error:", err);
+    
+    if (err.message === "Receiver user not found") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (err.message === "No pending request found") {
+      return res.status(400).json({ message: "No pending request to this user" });
+    }
+    
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -359,7 +417,8 @@ module.exports = {
   followUser,
   unFollowUser,
   acceptFollowRequest,
-  rejectFollowRequest,  
+  rejectFollowRequest,
+  cancelFollowRequest,
   getFollowing,
   getFollowers,
   blockUser,

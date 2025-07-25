@@ -7,6 +7,7 @@ const {
   unFollowUser,
   acceptFollowRequest,
   rejectFollowRequest,
+  cancelFollowRequest,
   getFollowing,
   getFollowers,
   blockUser,
@@ -26,9 +27,10 @@ router.post("/follow/:id", authMiddleware, followUser);
 router.delete("/unfollow/:id", authMiddleware, unFollowUser);
 
 
-// Accept/Reject follow request (Private accounts)
-router.post("/accept-follow/:id", authMiddleware, acceptFollowRequest); // ✅ NEW
-router.post("/reject-follow/:id", authMiddleware, rejectFollowRequest); // ✅ Optional
+// Follow request management (Private accounts)
+router.post("/accept-follow/:id", authMiddleware, acceptFollowRequest); // Accept incoming request
+router.post("/reject-follow/:id", authMiddleware, rejectFollowRequest); // Reject incoming request  
+router.delete("/cancel-follow/:id", authMiddleware, cancelFollowRequest); // Cancel outgoing request
 
 // Get connections
 router.get("/following", authMiddleware, getFollowing);
